@@ -6,21 +6,19 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <esp_event.h>
+#include "esp_log.h"
+#include "nvs_flash.h"
+#include "Wifi.h"
 #include "Gpio.h"
 
 #define pdSECOND pdMS_TO_TICKS(1000)
 
 class Main final {
 public:
-    esp_err_t setup(void);
-    void loop(void);
+    esp_err_t setup();
+    void loop();
 
-    Gpio::GpioOutput blueLed{GPIO_NUM_5, false};
-    Gpio::GpioOutput greenLed{GPIO_NUM_4, false};
+    Gpio::GpioOutput led{GPIO_NUM_4};
+    WIFI::Wifi wifi;
 };
-
-
-#ifndef ALCOTESTER_MAIN_H
-#define ALCOTESTER_MAIN_H
-
-#endif //ALCOTESTER_MAIN_H

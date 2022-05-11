@@ -41,8 +41,8 @@ namespace Gpio {
         [[nodiscard]] esp_err_t init();
 
         esp_err_t set(bool state);
-        esp_err_t toggle(void);
-        bool state(void) { return _state; }
+        esp_err_t toggle();
+        bool state() { return _state; }
     };
 
     class GpioInput : public GpioBase {};
