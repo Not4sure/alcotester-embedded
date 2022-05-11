@@ -39,7 +39,7 @@ namespace SNTP {
             sntp_setservername(1, "pool.ntp.com");
 
             sntp_set_time_sync_notification_cb(&callback_handler);
-            sntp_set_sync_interval(60 * 1000);
+            sntp_set_sync_interval(20 * 60 * 1000);
 
             sntp_init();
 
