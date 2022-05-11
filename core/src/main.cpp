@@ -1,7 +1,8 @@
 #include "main.h"
 
-#define LOG_LEVEL_LOCAL ESP_LOG_VERBOSE
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #define LOG_TAG "MAIN"
+#include "esp_log.h"
 
 static Main my_main;
 
@@ -26,14 +27,15 @@ esp_err_t Main::setup() {
     status |= led.init();
     status |= wifi.init();
 
-    if(ESP_OK == status) {
-        wifi.begin();
-    }
+    if(ESP_OK == status) wifi.begin();
+
+    status |= sntp.init();
 
     return status;
 }
 
 void Main::loop() {
+    ESP_LOGI(LOG_TAG, "Hello World");
     led.set(true);
     vTaskDelay(pdSECOND);
     led.set(false);

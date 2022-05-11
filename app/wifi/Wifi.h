@@ -14,6 +14,7 @@
 namespace WIFI {
     class Wifi {
         constexpr static char _log_tag[5] =  {"WiFi"};
+
         constexpr static char ssid[31] = {"example"};
         constexpr static char password[65] = {"example"};
     public:
@@ -34,7 +35,7 @@ namespace WIFI {
         esp_err_t init();
         esp_err_t begin();
 
-        constexpr const state_e& get_state() { return _state; };
+        constexpr static const state_e& get_state() { return _state; };
         constexpr static const char* get_mac() { return mac_addr_cstr; };
     private:
         static char mac_addr_cstr[13];
