@@ -13,6 +13,7 @@
 #include "Wifi.h"
 #include "Gpio.h"
 #include "Sntptime.h"
+#include "Nvs32.h"
 
 #define pdSECOND pdMS_TO_TICKS(1000)
 

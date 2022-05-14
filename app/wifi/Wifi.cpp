@@ -14,6 +14,8 @@ namespace WIFI {
     wifi_init_config_t  Wifi::wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
     wifi_config_t       Wifi::wifi_config{};
 
+    NVS::Nvs            Wifi::storage{};
+
     Wifi::Wifi() {
         ESP_LOGI(_log_tag, "%s: Waiting for init mutex", __func__);
         std::lock_guard<std::mutex> guard(init_mutex);
@@ -83,43 +85,6 @@ namespace WIFI {
                     break;
             }
         }
-    }
-
-    esp_err_t Wifi::begin() {
-        ESP_LOGI(_log_tag, "%s: Waiting for connect_mutex", __func__);
-        std::lock_guard<std::mutex> connect_guard(connect_mutex);
-
-        esp_err_t status{ESP_OK};
-
-        ESP_LOGI(_log_tag, "%s: Waiting for state_mutex", __func__);
-        std::lock_guard<std::mutex> state_guard(state_mutex);
-        switch (_state) {
-            case state_e::READY_TO_CONNECT:
-                ESP_LOGI(_log_tag, "%s: Calling esp_wifi_connect", __func__);
-                status = esp_wifi_connect();
-                ESP_LOGI(_log_tag, "%s: esp_wifi_connect: %s", __func__, esp_err_to_name(status));
-
-                if(ESP_OK == status)
-                    _state = state_e::CONNECTING;
-            case state_e::CONNECTING:
-            case state_e::WAITING_FOR_IP:
-            case state_e::CONNECTED:
-                break;
-            case state_e::NOT_INITIALISED:
-            case state_e::INITIALISED:
-            case state_e::WAITING_FOR_CREDENTIALS:
-            case state_e::DISCONNECTING:
-            case state_e::ERROR:
-                ESP_LOGE(_log_tag, "%s: Error state", __func__);
-                status = ESP_FAIL;
-                break;
-        }
-
-        if(state_e::READY_TO_CONNECT == _state) {
-            status = esp_wifi_connect();
-        }
-
-        return status;
     }
 
     esp_err_t Wifi::_init() {
@@ -209,8 +174,41 @@ namespace WIFI {
         return status;
     }
 
-    esp_err_t Wifi::init() {
-        return _init();
+    esp_err_t Wifi::begin() {
+        ESP_LOGI(_log_tag, "%s: Waiting for connect_mutex", __func__);
+        std::lock_guard<std::mutex> connect_guard(connect_mutex);
+
+        esp_err_t status{ESP_OK};
+
+        ESP_LOGI(_log_tag, "%s: Waiting for state_mutex", __func__);
+        std::lock_guard<std::mutex> state_guard(state_mutex);
+        switch (_state) {
+            case state_e::READY_TO_CONNECT:
+                ESP_LOGI(_log_tag, "%s: Calling esp_wifi_connect", __func__);
+                status = esp_wifi_connect();
+                ESP_LOGI(_log_tag, "%s: esp_wifi_connect: %s", __func__, esp_err_to_name(status));
+
+                if(ESP_OK == status)
+                    _state = state_e::CONNECTING;
+            case state_e::CONNECTING:
+            case state_e::WAITING_FOR_IP:
+            case state_e::CONNECTED:
+                break;
+            case state_e::NOT_INITIALISED:
+            case state_e::INITIALISED:
+            case state_e::WAITING_FOR_CREDENTIALS:
+            case state_e::DISCONNECTING:
+            case state_e::ERROR:
+                ESP_LOGE(_log_tag, "%s: Error state", __func__);
+                status = ESP_FAIL;
+                break;
+        }
+
+        if(state_e::READY_TO_CONNECT == _state) {
+            status = esp_wifi_connect();
+        }
+
+        return status;
     }
 
     esp_err_t Wifi::_get_mac() {

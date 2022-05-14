@@ -10,13 +10,14 @@
 #include <mutex>
 #include <algorithm>
 #include <cstring>
+#include "Nvs32.h"
 
 namespace WIFI {
     class Wifi {
         constexpr static char _log_tag[5] =  {"WiFi"};
 
-        constexpr static char ssid[31] = {"example"};
-        constexpr static char password[65] = {"example"};
+        constexpr static char ssid[31] = {""};
+        constexpr static char password[65] = {""};
     public:
         enum class state_e {
             NOT_INITIALISED,
@@ -32,7 +33,7 @@ namespace WIFI {
 
         Wifi();
 
-        esp_err_t init();
+        esp_err_t init() { return _init(); };
         esp_err_t begin();
 
         constexpr static const state_e& get_state() { return _state; };
@@ -53,6 +54,8 @@ namespace WIFI {
 
         static esp_err_t _get_mac();
         static esp_err_t _init();
+
+        static NVS::Nvs storage;
     };
 
 };

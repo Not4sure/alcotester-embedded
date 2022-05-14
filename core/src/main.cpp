@@ -1,6 +1,5 @@
 #include "main.h"
 
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 #define LOG_TAG "MAIN"
 #include "esp_log.h"
 
