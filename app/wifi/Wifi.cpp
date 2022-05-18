@@ -13,7 +13,6 @@ namespace WIFI {
     Wifi::state_e       Wifi::_state{state_e::NOT_INITIALISED};
     wifi_init_config_t  Wifi::wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
     wifi_config_t       Wifi::wifi_config{};
-
     NVS::Nvs            Wifi::storage{};
 
     Wifi::Wifi() {
@@ -25,7 +24,7 @@ namespace WIFI {
                 esp_restart();
     }
 
-    void Wifi::wifi_event_handler(void *ard, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+    void Wifi::wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
         if(WIFI_EVENT == event_base) {
             ESP_LOGI(_log_tag, "%s: Got wifi event; ID: %d", __func__, event_id);
 
@@ -35,7 +34,7 @@ namespace WIFI {
                 case WIFI_EVENT_STA_START: {
                     ESP_LOGI(_log_tag, "%s: STA_START, waiting for state_mutex", __func__);
                     std::lock_guard<std::mutex> guard(state_mutex);
-                    _state = state_e::READY_TO_CONNECT;
+                    _state = state_e::STARTED;
 
                     ESP_LOGI(_log_tag, "%s: READY_TO_CONNECT", __func__);
                     break;
@@ -55,7 +54,7 @@ namespace WIFI {
         }
     }
 
-    void Wifi::ip_event_handler(void *ard, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+    void Wifi::ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
         if(IP_EVENT == event_base) {
             ESP_LOGI(_log_tag, "%s: Got ip event; ID: %d", __func__, event_id);
 
@@ -82,6 +81,46 @@ namespace WIFI {
                 }
                 default:
                     ESP_LOGW(_log_tag, "%s: Default in switch/case", __func__);
+                    break;
+            }
+        }
+    }
+
+    void Wifi::prov_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+        if (WIFI_PROV_EVENT == event_base) {
+            switch (event_id) {
+                case WIFI_PROV_START:
+                    ESP_LOGI(_log_tag, "Provisioning started");
+                    break;
+                case WIFI_PROV_CRED_RECV: {
+                    auto *wifi_sta_cfg = (wifi_sta_config_t *)event_data;
+                    ESP_LOGI(_log_tag, "Received Wi-Fi credentials"
+                                       "\n\tSSID     : %s\n\tPassword : %s",
+                             (const char *) wifi_sta_cfg->ssid,
+                             (const char *) wifi_sta_cfg->password);
+                    break;
+                }
+                case WIFI_PROV_CRED_FAIL: {
+                    auto *reason = (wifi_prov_sta_fail_reason_t *)event_data;
+                    ESP_LOGE(_log_tag, "Provisioning failed!\n\tReason : %s"
+                                       "\n\tPlease reset to factory and retry provisioning",
+                             (*reason == WIFI_PROV_STA_AUTH_ERROR) ?
+                             "Wi-Fi station authentication failed" : "Wi-Fi access-point not found");
+                    std::lock_guard<std::mutex> state_guard(state_mutex);
+                    _state = state_e::ERROR;
+                    break;
+                }
+                case WIFI_PROV_CRED_SUCCESS:{
+                    ESP_LOGI(_log_tag, "Provisioning successful");
+                    std::lock_guard<std::mutex> state_guard(state_mutex);
+                    _state = state_e::READY_TO_CONNECT;
+                    break;
+                }
+//                case WIFI_PROV_END:
+//                    /* De-initialize manager once provisioning is finished */
+//                    wifi_prov_mgr_deinit();
+//                    break;
+                default:
                     break;
             }
         }
@@ -115,25 +154,36 @@ namespace WIFI {
             }
 
             if(ESP_OK == status) {
-                ESP_LOGI(_log_tag, "%s:%d Calling esp_event_handler_instance_register", __func__, __LINE__);
+                ESP_LOGI(_log_tag, "%s:%d Registering wifi_event_handler", __func__, __LINE__);
 
                 status |= esp_event_handler_instance_register(
                         WIFI_EVENT,
                         ESP_EVENT_ANY_ID,
                         &wifi_event_handler,
                         nullptr, nullptr);
-                ESP_LOGI(_log_tag, "%s: esp_event_handler_instance_register: %s", __func__, esp_err_to_name(status));
+                ESP_LOGI(_log_tag, "%s: Registered wifi_event_handler: %s", __func__, esp_err_to_name(status));
             }
 
             if(ESP_OK == status) {
-                ESP_LOGI(_log_tag, "%s:%d Calling esp_event_handler_instance_register", __func__, __LINE__);
+                ESP_LOGI(_log_tag, "%s:%d Registering ip_event_handler", __func__, __LINE__);
 
                 status |= esp_event_handler_instance_register(
                         IP_EVENT,
                         ESP_EVENT_ANY_ID,
                         &ip_event_handler,
                         nullptr, nullptr);
-                ESP_LOGI(_log_tag, "%s: esp_event_handler_instance_register: %s", __func__, esp_err_to_name(status));
+                ESP_LOGI(_log_tag, "%s: Registered ip_event_handler: %s", __func__, esp_err_to_name(status));
+            }
+
+            if(ESP_OK == status) {
+                ESP_LOGI(_log_tag, "%s:%d Registering prov_event_handler", __func__, __LINE__);
+
+                status |= esp_event_handler_instance_register(
+                        WIFI_PROV_EVENT,
+                        ESP_EVENT_ANY_ID,
+                        &prov_event_handler,
+                        nullptr, nullptr);
+                ESP_LOGI(_log_tag, "%s: Registered prov_event_handler: %s", __func__, esp_err_to_name(status));
             }
 
             if(ESP_OK == status) {
@@ -143,24 +193,36 @@ namespace WIFI {
                 ESP_LOGI(_log_tag, "%s: esp_wifi_set_mode: %s", __func__, esp_err_to_name(status));
             }
 
-            if(ESP_OK == status) {
-
-                memcpy(wifi_config.sta.ssid, ssid, std::min(strlen(ssid), sizeof(wifi_config.sta.ssid)));
-                memcpy(wifi_config.sta.password, password, std::min(strlen(password), sizeof(wifi_config.sta.password)));
-                wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-                wifi_config.sta.pmf_cfg.capable = true;
-                wifi_config.sta.pmf_cfg.required = false;
-
-                ESP_LOGI(_log_tag, "%s: Calling esp_wifi_set_config", __func__);
-                status |= esp_wifi_set_config(WIFI_IF_STA,  &wifi_config);
-                ESP_LOGI(_log_tag, "%s: esp_wifi_set_config: %s", __func__, esp_err_to_name(status));
-            }
 
             if(ESP_OK == status) {
                 ESP_LOGI(_log_tag, "%s: Calling esp_wifi_start", __func__);
                 status |= esp_wifi_start();
                 ESP_LOGI(_log_tag, "%s: esp_wifi_start: %s", __func__, esp_err_to_name(status));
             }
+
+            if (ESP_OK == status) {
+                ESP_LOGI(_log_tag, "%s: Calling wifi_prov_mgr_init", __func__);
+
+                wifi_prov_mgr_config_t config{wifi_prov_scheme_ble,
+                                              WIFI_PROV_SCHEME_BLE_EVENT_HANDLER_FREE_BTDM,
+                                              WIFI_PROV_EVENT_HANDLER_NONE};
+                status |= wifi_prov_mgr_init(config);
+                ESP_LOGI(_log_tag, "%s: wifi_prov_mgr_init: %s", __func__, esp_err_to_name(status));
+            }
+
+//             todo: rm or something
+//            if(ESP_OK == status) {
+//                wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+//                wifi_config.sta.pmf_cfg.capable = true;
+//                wifi_config.sta.pmf_cfg.required = false;
+//
+//                memcpy(wifi_config.sta.password, password, std::min(strlen(password), sizeof(wifi_config.sta.password)));
+//                memcpy(wifi_config.sta.ssid, ssid, std::min(strlen(ssid), sizeof(wifi_config.sta.ssid)));
+//
+//                ESP_LOGI(_log_tag, "%s: Calling esp_wifi_set_config", __func__);
+//                status |= esp_wifi_set_config(WIFI_IF_STA,  &wifi_config);
+//                ESP_LOGI(_log_tag, "%s: esp_wifi_set_config: %s", __func__, esp_err_to_name(status));
+//            }
 
             if(ESP_OK == status) {
                 ESP_LOGI(_log_tag, "%s: INITIALISED", __func__);
@@ -175,21 +237,58 @@ namespace WIFI {
     }
 
     esp_err_t Wifi::begin() {
-        ESP_LOGI(_log_tag, "%s: Waiting for connect_mutex", __func__);
-        std::lock_guard<std::mutex> connect_guard(connect_mutex);
 
         esp_err_t status{ESP_OK};
 
-        ESP_LOGI(_log_tag, "%s: Waiting for state_mutex", __func__);
-        std::lock_guard<std::mutex> state_guard(state_mutex);
+        //todo: need fixes to guarantee stable work
+        if(state_e::STARTED == _state) {
+            bool provisioned = false;
+            status |= wifi_prov_mgr_is_provisioned(&provisioned);
+            if (!provisioned) {
+                char service_name[24]{"AlcoTester-"};
+                strcat(service_name, mac_addr_cstr);
+
+                uint8_t custom_service_uuid[] = {
+                        /* LSB <---------------------------------------
+                         * ---------------------------------------> MSB */
+                        0xb4, 0xdf, 0x5a, 0x1c, 0x3f, 0x6b, 0xf4, 0xbf,
+                        0xea, 0x4a, 0x82, 0x03, 0x04, 0x90, 0x1a, 0x02,
+                };
+
+                /* If your build fails with linker errors at this point, then you may have
+                 * forgotten to enable the BT stack or BTDM BLE settings in the SDK (e.g. see
+                 * the sdkconfig.defaults in the example project) */
+                wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
+
+                status |= wifi_prov_mgr_start_provisioning(WIFI_PROV_SECURITY_1, nullptr, service_name,
+                                                           nullptr);
+
+                // Wait for service to complete
+                wifi_prov_mgr_wait();
+            }
+            wifi_prov_mgr_deinit();
+
+            ESP_LOGI(_log_tag, "%s: Waiting for state_mutex", __func__);
+            std::lock_guard<std::mutex> state_guard(state_mutex);
+            _state = state_e::READY_TO_CONNECT;
+        }
+
         switch (_state) {
-            case state_e::READY_TO_CONNECT:
+            case state_e::READY_TO_CONNECT: {
+                ESP_LOGI(_log_tag, "%s: Waiting for connect_mutex", __func__);
+                std::lock_guard<std::mutex> connect_guard(connect_mutex);
+
                 ESP_LOGI(_log_tag, "%s: Calling esp_wifi_connect", __func__);
                 status = esp_wifi_connect();
                 ESP_LOGI(_log_tag, "%s: esp_wifi_connect: %s", __func__, esp_err_to_name(status));
 
-                if(ESP_OK == status)
+                ESP_LOGI(_log_tag, "%s: Waiting for state_mutex", __func__);
+                std::lock_guard<std::mutex> state_guard(state_mutex);
+                if (ESP_OK == status)
                     _state = state_e::CONNECTING;
+                break;
+            }
+            case state_e::STARTED:
             case state_e::CONNECTING:
             case state_e::WAITING_FOR_IP:
             case state_e::CONNECTED:
@@ -197,15 +296,11 @@ namespace WIFI {
             case state_e::NOT_INITIALISED:
             case state_e::INITIALISED:
             case state_e::WAITING_FOR_CREDENTIALS:
-            case state_e::DISCONNECTING:
+            case state_e::DISCONNECTED:
             case state_e::ERROR:
                 ESP_LOGE(_log_tag, "%s: Error state", __func__);
                 status = ESP_FAIL;
                 break;
-        }
-
-        if(state_e::READY_TO_CONNECT == _state) {
-            status = esp_wifi_connect();
         }
 
         return status;
@@ -221,4 +316,6 @@ namespace WIFI {
                     buffer[3], buffer[4], buffer[5]);
         return status;
     }
+
+
 }

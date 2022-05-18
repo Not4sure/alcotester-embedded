@@ -3,13 +3,19 @@
 //
 #pragma once
 
-#include <esp_err.h>
+#include <cstring>
+#include <algorithm>
+#include <mutex>
+
+#include "esp_err.h"
+#include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_mac.h"
-#include "esp_log.h"
-#include <mutex>
-#include <algorithm>
-#include <cstring>
+#include "esp_smartconfig.h"
+
+#include "wifi_provisioning/manager.h"
+#include "wifi_provisioning/scheme_ble.h"
+
 #include "Nvs32.h"
 
 namespace WIFI {
@@ -22,35 +28,38 @@ namespace WIFI {
         enum class state_e {
             NOT_INITIALISED,
             INITIALISED,
+            STARTED,
             WAITING_FOR_CREDENTIALS,
             READY_TO_CONNECT,
             CONNECTING,
             WAITING_FOR_IP,
             CONNECTED,
-            DISCONNECTING,
+            DISCONNECTED,
             ERROR
         };
 
         Wifi();
 
-        esp_err_t init() { return _init(); };
+        static esp_err_t init() { return _init(); };
         esp_err_t begin();
 
         constexpr static const state_e& get_state() { return _state; };
         constexpr static const char* get_mac() { return mac_addr_cstr; };
     private:
+        static state_e _state;
         static char mac_addr_cstr[13];
         static std::mutex init_mutex;
         static std::mutex connect_mutex;
         static std::mutex state_mutex;
-        static state_e _state;
-        static wifi_init_config_t wifi_init_config;
-        static wifi_config_t wifi_config;
 
-        void state_machine();
+        static wifi_init_config_t   wifi_init_config;
+        static wifi_config_t        wifi_config;
 
-        static void wifi_event_handler(void* ard, esp_event_base_t event_base, int32_t event_id, void* event_data);
-        static void ip_event_handler(void* ard, esp_event_base_t event_base, int32_t event_id, void* event_data);
+        static bool empty_credentials() { return '\0' == wifi_config.sta.ssid[0]; }
+
+        static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+        static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
+        static void prov_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
         static esp_err_t _get_mac();
         static esp_err_t _init();
