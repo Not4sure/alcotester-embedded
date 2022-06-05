@@ -17,6 +17,7 @@
 #include "wifi_provisioning/scheme_ble.h"
 
 #include "Nvs32.h"
+#include "RGBLed.h"
 
 namespace WIFI {
     class Wifi {
@@ -51,6 +52,8 @@ namespace WIFI {
         static std::mutex init_mutex;
         static std::mutex connect_mutex;
         static std::mutex state_mutex;
+
+//        static RGB::Led led;
 
         static wifi_init_config_t   wifi_init_config;
         static wifi_config_t        wifi_config;

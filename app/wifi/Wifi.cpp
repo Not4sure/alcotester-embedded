@@ -15,6 +15,8 @@ namespace WIFI {
     wifi_config_t       Wifi::wifi_config{};
     NVS::Nvs            Wifi::storage{};
 
+//    RGB::Led            led{};
+
     Wifi::Wifi() {
         ESP_LOGI(_log_tag, "%s: Waiting for init mutex", __func__);
         std::lock_guard<std::mutex> guard(init_mutex);
@@ -210,19 +212,7 @@ namespace WIFI {
                 ESP_LOGI(_log_tag, "%s: wifi_prov_mgr_init: %s", __func__, esp_err_to_name(status));
             }
 
-//             todo: rm or something
-//            if(ESP_OK == status) {
-//                wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-//                wifi_config.sta.pmf_cfg.capable = true;
-//                wifi_config.sta.pmf_cfg.required = false;
-//
-//                memcpy(wifi_config.sta.password, password, std::min(strlen(password), sizeof(wifi_config.sta.password)));
-//                memcpy(wifi_config.sta.ssid, ssid, std::min(strlen(ssid), sizeof(wifi_config.sta.ssid)));
-//
-//                ESP_LOGI(_log_tag, "%s: Calling esp_wifi_set_config", __func__);
-//                status |= esp_wifi_set_config(WIFI_IF_STA,  &wifi_config);
-//                ESP_LOGI(_log_tag, "%s: esp_wifi_set_config: %s", __func__, esp_err_to_name(status));
-//            }
+//            if(ESP_OK == status) led.init();
 
             if(ESP_OK == status) {
                 ESP_LOGI(_log_tag, "%s: INITIALISED", __func__);
@@ -242,6 +232,7 @@ namespace WIFI {
 
         //todo: need fixes to guarantee stable work
         if(state_e::STARTED == _state) {
+//            led.blink(RGB::Led::GREEN, RGB::Led::NORMAL);
             bool provisioned = false;
             status |= wifi_prov_mgr_is_provisioned(&provisioned);
             if (!provisioned) {
@@ -260,7 +251,7 @@ namespace WIFI {
                  * the sdkconfig.defaults in the example project) */
                 wifi_prov_scheme_ble_set_service_uuid(custom_service_uuid);
 
-                status |= wifi_prov_mgr_start_provisioning(WIFI_PROV_SECURITY_1, nullptr, service_name,
+                status |= wifi_prov_mgr_start_provisioning(WIFI_PROV_SECURITY_1, "YVyjPxHp", service_name,
                                                            nullptr);
 
                 // Wait for service to complete
@@ -268,6 +259,7 @@ namespace WIFI {
             }
             wifi_prov_mgr_deinit();
 
+//            led.turn_of();
             ESP_LOGI(_log_tag, "%s: Waiting for state_mutex", __func__);
             std::lock_guard<std::mutex> state_guard(state_mutex);
             _state = state_e::READY_TO_CONNECT;

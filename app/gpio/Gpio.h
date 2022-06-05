@@ -3,9 +3,6 @@
 //
 #pragma once
 
-#ifndef ALCOTESTER_GPIO_H
-#define ALCOTESTER_GPIO_H
-
 #include "driver/gpio.h"
 
 
@@ -47,6 +44,3 @@ namespace Gpio {
 
     class GpioInput : public GpioBase {};
 };
-
-
-#endif //ALCOTESTER_GPIO_H

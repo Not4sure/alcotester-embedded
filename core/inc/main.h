@@ -11,9 +11,11 @@
 #include "nvs_flash.h"
 
 #include "Wifi.h"
-#include "Gpio.h"
 #include "Sntptime.h"
 #include "Nvs32.h"
+#include "WebSocket.h"
+
+//#include "RGBLed.h"
 
 #define pdSECOND pdMS_TO_TICKS(1000)
 
@@ -24,7 +26,8 @@ public:
     esp_err_t setup();
     void loop();
 
-    Gpio::GpioOutput led{GPIO_NUM_4};
     WIFI::Wifi wifi;
     SNTP::Sntp& sntp;
+    WebSocket ws{"ws://evening-brook-47964.herokuapp.com", 80};
+//    RGB::Led led{GPIO_NUM_3, GPIO_NUM_4, GPIO_NUM_5};
 };
