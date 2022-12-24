@@ -26,6 +26,14 @@ namespace WIFI {
                 esp_restart();
     }
 
+    void Wifi::wifi_task(void *arg) {
+        ESP_LOGI(_log_tag, "This is wifi task for first time");
+        while(1) {
+            ESP_LOGI(_log_tag, "This is wifi task");
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+    }
+
     void Wifi::wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
         if(WIFI_EVENT == event_base) {
             ESP_LOGI(_log_tag, "%s: Got wifi event; ID: %d", __func__, event_id);
@@ -211,8 +219,6 @@ namespace WIFI {
                 status |= wifi_prov_mgr_init(config);
                 ESP_LOGI(_log_tag, "%s: wifi_prov_mgr_init: %s", __func__, esp_err_to_name(status));
             }
-
-//            if(ESP_OK == status) led.init();
 
             if(ESP_OK == status) {
                 ESP_LOGI(_log_tag, "%s: INITIALISED", __func__);

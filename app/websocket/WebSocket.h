@@ -4,9 +4,11 @@
 
 #pragma once
 
+
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_websocket_client.h"
+#include "Sensor.h"
 
 #include "Wifi.h"
 
@@ -14,6 +16,7 @@ class WebSocket {
 public:
     enum class state_e {
         DISCONNECTED,
+        WAITING_FOR_MESURE,
         CONNECTED
     };
 
@@ -23,17 +26,21 @@ public:
         config.port = port;
     };
 
-    esp_err_t send(const char* message);
+    static esp_err_t send(const char* message);
 
     esp_err_t init();
 
     state_e get_state() { return state; }
 
 private:
+    Sensor sensor{};
+
     esp_websocket_client_config_t config;
 
-    esp_websocket_client_handle_t client;
+    static esp_websocket_client_handle_t client;
     static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
+
+    [[noreturn]] static void ws_task(void *arg);
 
     const char* uri;
     const int   port;

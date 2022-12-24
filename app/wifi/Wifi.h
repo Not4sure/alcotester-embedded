@@ -64,6 +64,7 @@ namespace WIFI {
         static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
         static void prov_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
+        static void wifi_task(void *arg);
         static esp_err_t _get_mac();
         static esp_err_t _init();
 
